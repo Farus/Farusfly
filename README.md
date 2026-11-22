@@ -1,12 +1,12 @@
-# FarusFly 0.8.2 — alertas visuales IA (sin control de vuelo)
+# FarusFly 0.8.3 — alertas visuales IA (sin control de vuelo)
 
-Aplicación Android Java, identificador cl.farus.farusfly.
+Aplicación Android Java, identificador `cl.farus.farusfly`. La versión 0.8.3 declara Android API 35 como objetivo para incorporar protecciones modernas de Android.
 
 ## Funciones incluidas
 
 - Vista previa de video DJI SDK V4 en modo de solo lectura.
-- Análisis local de la imagen con Google ML Kit Object Detection en modo de flujo.
-- Cuadros sobre objetos visualmente detectados y una zona virtual central. El cuadro se vuelve rojo y aparece una alerta cuando un objeto cruza esa zona.
+- Análisis local de imagen con Google ML Kit Object Detection en modo de flujo.
+- Cuadros sobre objetos detectados y una zona virtual central. El cuadro se vuelve rojo y aparece una alerta cuando un objeto cruza esa zona.
 - Botones para iniciar y detener el análisis.
 - Grabación de audio con el micrófono del teléfono, selección de video local y simulación de seguimiento sin transmitir órdenes.
 
@@ -22,10 +22,10 @@ El análisis se ejecuta en el teléfono; FarusFly no envía imágenes a un servi
 
 ## Compilación
 
-El APK debug v0.8.2 se compiló correctamente en GitHub Actions. El paquete excluye la base Fly Safe para reducir su tamaño; DJI puede descargarla al registrar el SDK y requiere Internet en ese momento.
+El APK debug v0.8.3 se compiló correctamente en GitHub Actions. El paquete excluye la base Fly Safe para reducir su tamaño; DJI puede descargarla al registrar el SDK y requiere Internet en ese momento.
 
-Requiere Android Studio, Android SDK 35, JDK 17 y acceso a repositorios Maven/Gradle. Abrir el proyecto y configurar DJI_APP_KEY como propiedad local de Gradle; no guardar ni compartir esa clave en el repositorio. Ejecutar gradle assembleDebug. Este paquete no incorpora el wrapper Gradle. La compatibilidad del teléfono, inicialización DJI, video e IA requieren pruebas en equipo real.
+Requiere Android Studio, Android SDK 35, JDK 17 y acceso a repositorios Maven/Gradle. Abrir el proyecto y configurar `DJI_APP_KEY` como propiedad local de Gradle; no guardar ni compartir esa clave en el repositorio. Ejecutar `gradle assembleDebug`. Este paquete no incorpora el wrapper Gradle. La compatibilidad del teléfono, inicialización DJI, video e IA aún requieren pruebas en equipo real.
 
 ## Estado de validación
 
-El APK se compiló en CI y contiene el identificador cl.farus.farusfly y la App Key configurada durante la compilación. Aún falta instalarlo y validar el registro, la cámara y la detección IA con un teléfono, control y Mini 2 reales.
+La compilación pasó en CI y el APK contiene el identificador `cl.farus.farusfly`. La App Key se entrega al proceso de compilación mediante un secreto de GitHub Actions y no se guarda en el repositorio. Falta instalar la app y validar el registro, la cámara y la detección IA con un teléfono, control y Mini 2 reales.
