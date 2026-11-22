@@ -77,7 +77,7 @@ public class MainActivity extends Activity {
         root.setPadding(30,40,30,40);
         root.setBackgroundColor(Color.rgb(12,35,43));
         scroll.addView(root);
-        label(root,"FarusFly 0.8.7",32,Color.WHITE);
+        label(root,"FarusFly 0.8.8",32,Color.WHITE);
         diagnostics = new DjiDiagnostics(this);
         String interruption = diagnostics.previousInterruption();
         if (interruption != null) label(root, interruption, 14, 0xFFFFCA66);
@@ -107,12 +107,18 @@ public class MainActivity extends Activity {
         obstacleOverlay=new ObstacleOverlayView(this);
         previewFrame.addView(djiPreview,new FrameLayout.LayoutParams(-1,-1));
         previewFrame.addView(obstacleOverlay,new FrameLayout.LayoutParams(-1,-1));
-        root.addView(previewFrame,new LinearLayout.LayoutParams(-1,520));
         djiVideo = new DjiVideoPreview(this, djiPreview, cameraStatus::setText, diagnostics::record);
-        visualGuard=new VisualObstacleGuard(djiPreview,obstacleOverlay);
-        button(root,"Desactivar vista DJI",v -> {visualGuard.stop();djiVideo.stop();});
-        button(root,"Iniciar alertas visuales IA (zona virtual)",v -> visualGuard.start());
-        button(root,"Detener alertas visuales IA",v -> visualGuard.stop());
+        TextView visionStatus = label(root, "IA detenida.", 16, Color.WHITE);
+        visualGuard = new VisualObstacleGuard(djiPreview, obstacleOverlay, djiVideo::hasRecentFrame,
+                (message, alert) -> {
+                    visionStatus.setText(message);
+                    visionStatus.setTextColor(alert ? 0xFFFF7474 : Color.WHITE);
+                    visionStatus.setBackgroundColor(alert ? 0xFF44262D : Color.TRANSPARENT);
+                });
+        button(root, "Iniciar alertas visuales IA", v -> visualGuard.start());
+        root.addView(previewFrame, new LinearLayout.LayoutParams(-1, 520));
+        button(root, "Desactivar vista DJI", v -> { visualGuard.stop(); djiVideo.stop(); });
+        button(root, "Detener alertas visuales IA", v -> visualGuard.stop());
         status = label(root, "", 16, Color.WHITE);
         recordButton=button(root,"● Iniciar grabación de audio ambiente",v->{if(recording)stopAudio();else requestAudio();});
         button(root,"Compartir última grabación M4A",v->shareAudio());

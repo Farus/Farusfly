@@ -2,6 +2,7 @@ package cl.farus.farusfly;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
+import android.os.SystemClock;
 import android.view.TextureView;
 import java.util.function.Consumer;
 import dji.sdk.camera.VideoFeeder;
@@ -21,6 +22,7 @@ public final class DjiVideoPreview implements TextureView.SurfaceTextureListener
     private boolean active;
     private boolean connected;
     private boolean rendered;
+    private long lastFrameAt;
     private volatile boolean receivedData;
     private final Runnable frameTimeout = this::showFrameTimeout;
 
@@ -108,6 +110,10 @@ public final class DjiVideoPreview implements TextureView.SurfaceTextureListener
         listener.onStatus("Cámara detenida.");
     }
 
+    boolean hasRecentFrame() {
+        return rendered && SystemClock.elapsedRealtime() - lastFrameAt <= 2000;
+    }
+
     private void detach() {
         view.removeCallbacks(frameTimeout);
         if (feed != null && feedListener != null) feed.removeVideoDataListener(feedListener);
@@ -140,7 +146,9 @@ public final class DjiVideoPreview implements TextureView.SurfaceTextureListener
     }
 
     @Override public void onSurfaceTextureUpdated(SurfaceTexture texture) {
-        if (!rendered && receivedData && feed != null) {
+        if (feed == null || !receivedData) return;
+        lastFrameAt = SystemClock.elapsedRealtime();
+        if (!rendered) {
             rendered = true;
             view.removeCallbacks(frameTimeout);
             stage.accept("cámara DJI en directo");
