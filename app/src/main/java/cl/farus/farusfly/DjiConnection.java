@@ -2,6 +2,7 @@ package cl.farus.farusfly;
 
 import android.content.Context;
 import android.content.Intent;
+import java.util.function.Consumer;
 import dji.common.error.DJIError;
 import dji.common.error.DJISDKError;
 import dji.sdk.base.BaseProduct;
@@ -15,13 +16,16 @@ public final class DjiConnection {
     private final Listener listener;
     public interface ProductListener { void onConnectionChanged(boolean connected); }
     private final ProductListener productListener;
+    private final Consumer<String> stage;
     private volatile boolean registering;
     private volatile boolean registered;
 
-    public DjiConnection(Context context, Listener listener, ProductListener productListener) {
+    public DjiConnection(Context context, Listener listener, ProductListener productListener,
+                         Consumer<String> stage) {
         this.context = context.getApplicationContext();
         this.listener = listener;
         this.productListener = productListener;
+        this.stage = stage;
     }
 
     public void register() {
@@ -31,6 +35,7 @@ public final class DjiConnection {
                 productListener.onConnectionChanged(true);
                 return;
             }
+            stage.accept("reconexión del control DJI");
             context.sendBroadcast(new Intent(DJISDKManager.USB_ACCESSORY_ATTACHED)
                     .setPackage(context.getPackageName()));
             listener.onStatus("SDK registrado y USB autorizado. Buscando el Mini 2…");
@@ -43,6 +48,7 @@ public final class DjiConnection {
         registering = true;
         listener.onStatus("Control DJI detectado. Registrando DJI SDK; mantén Internet activo…");
         try {
+            stage.accept("registro del SDK DJI");
             DJISDKManager.getInstance().registerApp(context, new DJISDKManager.SDKManagerCallback() {
                 @Override public void onRegister(DJIError error) {
                     if (error == DJISDKError.REGISTRATION_SUCCESS) {
@@ -50,6 +56,7 @@ public final class DjiConnection {
                         registering = false;
                         listener.onStatus("SDK registrado y USB autorizado. Buscando el Mini 2…");
                         try {
+                            stage.accept("enlace del SDK con el Mini 2");
                             DJISDKManager.getInstance().startConnectionToProduct();
                         } catch (RuntimeException e) {
                             registered = false;
@@ -65,8 +72,9 @@ public final class DjiConnection {
                     listener.onStatus("DJI desconectado. Revisa el cable USB y que el Mini 2 esté encendido.");
                 }
                 @Override public void onProductConnect(BaseProduct product) {
-                    listener.onStatus("DJI conectado: " + (product == null ? "modelo desconocido" : product.getModel()));
-                    productListener.onConnectionChanged(product != null);
+                    if (product == null) return;
+                    listener.onStatus("DJI conectado: " + product.getModel() + ". Pulsa Activar vista DJI.");
+                    productListener.onConnectionChanged(true);
                 }
                 @Override public void onProductChanged(BaseProduct product) {
                     if (product != null && product.isConnected()) onProductConnect(product);

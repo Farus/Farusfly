@@ -36,6 +36,9 @@ public class MainActivity extends Activity {
     private static final int MIC_PERMISSION=100, PICK_VIDEO=101, DJI_LOCATION_PERMISSION=102;
     private static final String USB_PERMISSION = "cl.farus.farusfly.USB_PERMISSION";
     private UsbManager usbManager;
+    private DjiDiagnostics diagnostics;
+    private Button activateCamera;
+    private boolean djiConnected;
     private boolean usbPermissionPending;
     private final BroadcastReceiver usbPermissionReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
@@ -74,7 +77,10 @@ public class MainActivity extends Activity {
         root.setPadding(30,40,30,40);
         root.setBackgroundColor(Color.rgb(12,35,43));
         scroll.addView(root);
-        label(root,"FarusFly",32,Color.WHITE);
+        label(root,"FarusFly 0.8.6",32,Color.WHITE);
+        diagnostics = new DjiDiagnostics(this);
+        String interruption = diagnostics.previousInterruption();
+        if (interruption != null) label(root, interruption, 14, 0xFFFFCA66);
         label(root,"DJI Mini 2 · IA visual · Audio y video local",15,0xFF8BE0CB);
         usbManager = getSystemService(UsbManager.class);
         ContextCompat.registerReceiver(this, usbPermissionReceiver, new IntentFilter(USB_PERMISSION),
@@ -83,20 +89,27 @@ public class MainActivity extends Activity {
         djiConnection = new DjiConnection(this,
                 message -> runOnUiThread(() -> connectionStatus.setText(message)),
                 connected -> runOnUiThread(() -> {
-                    if (!isDestroyed()) djiVideo.setProductConnected(connected);
-                }));
+                    if (isDestroyed() || djiConnected == connected) return;
+                    djiConnected = connected;
+                    activateCamera.setEnabled(connected);
+                    if (!connected) djiVideo.stop();
+                    djiVideo.setProductConnected(connected);
+                    diagnostics.record(connected ? "Mini 2 conectado; cámara sin activar"
+                            : "desconexión del Mini 2");
+                }), diagnostics::record);
         button(root, "Conectar DJI Mini 2", v -> connectDji());
         label(root,"CÁMARA DJI EN DIRECTO (solo lectura)",18,0xFF8BE0CB);
-        TextView cameraStatus = label(root, "Cámara detenida.", 14, Color.WHITE);
+        TextView cameraStatus = label(root, "Conecta el Mini 2 antes de activar la cámara.", 14, Color.WHITE);
+        activateCamera = button(root, "Activar vista DJI", v -> djiVideo.start());
+        activateCamera.setEnabled(false);
         FrameLayout previewFrame=new FrameLayout(this);
         djiPreview=new TextureView(this);
         obstacleOverlay=new ObstacleOverlayView(this);
         previewFrame.addView(djiPreview,new FrameLayout.LayoutParams(-1,-1));
         previewFrame.addView(obstacleOverlay,new FrameLayout.LayoutParams(-1,-1));
         root.addView(previewFrame,new LinearLayout.LayoutParams(-1,520));
-        djiVideo = new DjiVideoPreview(this, djiPreview, cameraStatus::setText);
+        djiVideo = new DjiVideoPreview(this, djiPreview, cameraStatus::setText, diagnostics::record);
         visualGuard=new VisualObstacleGuard(djiPreview,obstacleOverlay);
-        button(root,"Activar vista DJI",v -> djiVideo.start());
         button(root,"Desactivar vista DJI",v -> {visualGuard.stop();djiVideo.stop();});
         button(root,"Iniciar alertas visuales IA (zona virtual)",v -> visualGuard.start());
         button(root,"Detener alertas visuales IA",v -> visualGuard.stop());
@@ -148,7 +161,7 @@ public class MainActivity extends Activity {
 
     private void connectDji() {
         if (usbPermissionPending) return;
-        djiVideo.start();
+        diagnostics.record("detección del control USB");
         UsbAccessory control = findDjiAccessory();
         if (control == null) {
             connectionStatus.setText("Android no detecta el control DJI por USB. Cierra DJI Fly y vuelve a conectar el cable.");

@@ -3,6 +3,7 @@ package cl.farus.farusfly;
 import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.view.TextureView;
+import java.util.function.Consumer;
 import dji.sdk.camera.VideoFeeder;
 import dji.sdk.codec.DJICodecManager;
 
@@ -12,6 +13,7 @@ public final class DjiVideoPreview implements TextureView.SurfaceTextureListener
     private final Context context;
     private final TextureView view;
     private final Listener listener;
+    private final Consumer<String> stage;
     private final Object decoderLock = new Object();
     private DJICodecManager codec;
     private VideoFeeder.VideoDataListener feedListener;
@@ -22,10 +24,12 @@ public final class DjiVideoPreview implements TextureView.SurfaceTextureListener
     private volatile boolean receivedData;
     private final Runnable frameTimeout = this::showFrameTimeout;
 
-    public DjiVideoPreview(Context context, TextureView view, Listener listener) {
+    public DjiVideoPreview(Context context, TextureView view, Listener listener,
+                           Consumer<String> stage) {
         this.context = context;
         this.view = view;
         this.listener = listener;
+        this.stage = stage;
         view.setSurfaceTextureListener(this);
     }
 
@@ -37,8 +41,14 @@ public final class DjiVideoPreview implements TextureView.SurfaceTextureListener
 
     public void setProductConnected(boolean connected) {
         this.connected = connected;
-        if (!connected) detach();
-        if (active) attach();
+        if (!connected) {
+            detach();
+            listener.onStatus("Cámara en espera de conexión DJI.");
+        } else if (active) {
+            attach();
+        } else {
+            listener.onStatus("Mini 2 conectado. Pulsa Activar vista DJI.");
+        }
     }
 
     private void attach() {
@@ -50,6 +60,7 @@ public final class DjiVideoPreview implements TextureView.SurfaceTextureListener
         if (!view.isAvailable() || view.getWidth() <= 0 || view.getHeight() <= 0) return;
 
         try {
+            stage.accept("selección de la señal de cámara");
             VideoFeeder feeder = VideoFeeder.getInstance();
             if (feeder != null) {
                 feed = feeder.isLensDistortionCalibrationNeeded() || feeder.isFetchKeyFrameNeeded()
@@ -60,6 +71,7 @@ public final class DjiVideoPreview implements TextureView.SurfaceTextureListener
                 return;
             }
 
+            stage.accept("inicio del decodificador de video DJI");
             DJICodecManager decoder = new DJICodecManager(context, view.getSurfaceTexture(),
                     view.getWidth(), view.getHeight());
             synchronized (decoderLock) {
@@ -73,6 +85,7 @@ public final class DjiVideoPreview implements TextureView.SurfaceTextureListener
                     decoder.sendDataToDecoder(bytes, size);
                 }
             };
+            stage.accept("recepción y decodificación del video DJI");
             feed.addVideoDataListener(feedListener);
             listener.onStatus("Esperando imagen de la cámara DJI…");
             view.postDelayed(frameTimeout, 8000);
@@ -130,6 +143,7 @@ public final class DjiVideoPreview implements TextureView.SurfaceTextureListener
         if (!rendered && receivedData && feed != null) {
             rendered = true;
             view.removeCallbacks(frameTimeout);
+            stage.accept("cámara DJI en directo");
             listener.onStatus("Cámara DJI en directo.");
         }
     }
