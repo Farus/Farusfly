@@ -8,8 +8,8 @@ android {
         multiDexEnabled true
         targetSdk 35
         manifestPlaceholders = [DJI_APP_KEY: (project.findProperty('DJI_APP_KEY') ?: 'REPLACE_WITH_DJI_APP_KEY')]
-        versionCode 16
-        versionName '0.8.8'
+        versionCode 17
+        versionName '0.8.9'
     }
     // Match the native packaging used by DJI's Android SDK 4.18 sample.
     packaging {

@@ -33,7 +33,7 @@ import java.util.Locale;
 
 /** FarusFly offline prototype: local microphone, video preview, safe simulator. No DJI control. */
 public class MainActivity extends Activity {
-    private static final int MIC_PERMISSION=100, PICK_VIDEO=101, DJI_LOCATION_PERMISSION=102;
+    private static final int MIC_PERMISSION=100, PICK_VIDEO=101, DJI_LOCATION_PERMISSION=102, VIDEO_MIC_PERMISSION=103;
     private static final String USB_PERMISSION = "cl.farus.farusfly.USB_PERMISSION";
     private UsbManager usbManager;
     private DjiDiagnostics diagnostics;
@@ -56,7 +56,10 @@ public class MainActivity extends Activity {
     };
     private MediaRecorder recorder;
     private TextView status, connectionStatus, videoLabel;
-    private Button recordButton;
+    private Button recordButton, recordVideoButton, shareVideoButton;
+    private TextView videoRecordingStatus;
+    private FlightClipRecorder clipRecorder;
+    private Uri lastVideo;
     private VideoView videoView;
     private TextureView djiPreview;
     private DjiVideoPreview djiVideo;
@@ -77,7 +80,7 @@ public class MainActivity extends Activity {
         root.setPadding(30,40,30,40);
         root.setBackgroundColor(Color.rgb(12,35,43));
         scroll.addView(root);
-        label(root,"FarusFly 0.8.8",32,Color.WHITE);
+        label(root,"FarusFly 0.8.9",32,Color.WHITE);
         diagnostics = new DjiDiagnostics(this);
         String interruption = diagnostics.previousInterruption();
         if (interruption != null) label(root, interruption, 14, 0xFFFFCA66);
@@ -92,7 +95,10 @@ public class MainActivity extends Activity {
                     if (isDestroyed() || djiConnected == connected) return;
                     djiConnected = connected;
                     activateCamera.setEnabled(connected);
-                    if (!connected) djiVideo.stop();
+                    if (!connected) {
+                        clipRecorder.stop();
+                        djiVideo.stop();
+                    }
                     djiVideo.setProductConnected(connected);
                     diagnostics.record(connected ? "Mini 2 conectado; cámara sin activar"
                             : "desconexión del Mini 2");
@@ -108,6 +114,22 @@ public class MainActivity extends Activity {
         previewFrame.addView(djiPreview,new FrameLayout.LayoutParams(-1,-1));
         previewFrame.addView(obstacleOverlay,new FrameLayout.LayoutParams(-1,-1));
         djiVideo = new DjiVideoPreview(this, djiPreview, cameraStatus::setText, diagnostics::record);
+        videoRecordingStatus = label(root, "MP4 con imagen DJI y audio del teléfono.", 15, Color.WHITE);
+        recordVideoButton = button(root, "● Grabar video y audio", v -> toggleVideoRecording());
+        shareVideoButton = button(root, "Compartir último MP4", v -> shareVideo());
+        shareVideoButton.setVisibility(View.GONE);
+        clipRecorder = new FlightClipRecorder(this, djiPreview, djiVideo::hasRecentFrame,
+                (message, result) -> {
+                    if (isDestroyed()) return;
+                    videoRecordingStatus.setText(message);
+                    recordVideoButton.setText(clipRecorder.isRecording()
+                            ? "■ Detener y guardar MP4" : "● Grabar video y audio");
+                    recordVideoButton.setEnabled(!clipRecorder.isFinishing());
+                    if (result != null) {
+                        lastVideo = result;
+                        shareVideoButton.setVisibility(View.VISIBLE);
+                    }
+                });
         TextView visionStatus = label(root, "IA detenida.", 16, Color.WHITE);
         visualGuard = new VisualObstacleGuard(djiPreview, obstacleOverlay, djiVideo::hasRecentFrame,
                 (message, alert) -> {
@@ -117,7 +139,7 @@ public class MainActivity extends Activity {
                 });
         button(root, "Iniciar alertas visuales IA", v -> visualGuard.start());
         root.addView(previewFrame, new LinearLayout.LayoutParams(-1, 520));
-        button(root, "Desactivar vista DJI", v -> { visualGuard.stop(); djiVideo.stop(); });
+        button(root, "Desactivar vista DJI", v -> { clipRecorder.stop(); visualGuard.stop(); djiVideo.stop(); });
         button(root, "Detener alertas visuales IA", v -> visualGuard.stop());
         status = label(root, "", 16, Color.WHITE);
         recordButton=button(root,"● Iniciar grabación de audio ambiente",v->{if(recording)stopAudio();else requestAudio();});
@@ -233,7 +255,42 @@ public class MainActivity extends Activity {
             videoLabel.setText("Video local cargado. Audio y video NO están sincronizados automáticamente.");
         }
     }
+    private void toggleVideoRecording() {
+        if (clipRecorder.isRecording()) {
+            clipRecorder.stop();
+            return;
+        }
+        if (clipRecorder.isFinishing()) return;
+        if (recording) {
+            videoRecordingStatus.setText("Detén primero la grabación de audio independiente.");
+            return;
+        }
+        if (!djiVideo.hasRecentFrame()) {
+            videoRecordingStatus.setText("Activa la vista DJI y espera a ver la imagen en directo.");
+            return;
+        }
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, VIDEO_MIC_PERMISSION);
+            return;
+        }
+        clipRecorder.start();
+    }
+
+    private void shareVideo() {
+        if (lastVideo == null) return;
+        Intent intent = new Intent(Intent.ACTION_SEND);
+        intent.setType("video/mp4");
+        intent.putExtra(Intent.EXTRA_STREAM, lastVideo);
+        intent.setClipData(android.content.ClipData.newRawUri("Grabación FarusFly", lastVideo));
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        startActivity(Intent.createChooser(intent, "Compartir video FarusFly"));
+    }
+
     private void requestAudio(){
+        if (clipRecorder.isBusy()) {
+            status.setText("El micrófono está ocupado por la grabación de video.");
+            return;
+        }
         if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED)
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},MIC_PERMISSION);
         else startAudio();
@@ -246,6 +303,9 @@ public class MainActivity extends Activity {
             } else {
                 connectionStatus.setText("Para registrar DJI, habilita Ubicación precisa y Teléfono en los permisos de FarusFly.");
             }
+        } else if (code == VIDEO_MIC_PERMISSION) {
+            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) toggleVideoRecording();
+            else videoRecordingStatus.setText("Activa el permiso de micrófono para grabar video y audio.");
         } else if (code == MIC_PERMISSION) {
             if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) startAudio();
             else status.setText("Permiso de micrófono no concedido.");
@@ -282,8 +342,14 @@ public class MainActivity extends Activity {
         startActivity(Intent.createChooser(intent,"Compartir audio FarusFly"));
     }
     private void releaseRecorder(){if(recorder!=null){try{recorder.reset();}catch(Exception ignored){}recorder.release();recorder=null;}}
+    @Override protected void onStop() {
+        if (clipRecorder != null) clipRecorder.stop();
+        super.onStop();
+    }
+
     @Override protected void onDestroy() {
         unregisterReceiver(usbPermissionReceiver);
+        if (clipRecorder != null) clipRecorder.close();
         if (visualGuard != null) visualGuard.stop();
         if (djiVideo != null) djiVideo.stop();
         if (recording) stopAudio();
