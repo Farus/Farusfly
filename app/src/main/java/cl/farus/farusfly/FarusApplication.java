@@ -3,7 +3,7 @@ package cl.farus.farusfly;
 import android.app.Application;
 import android.content.Context;
 import androidx.multidex.MultiDex;
-import com.secneo.sdk.Helper;
+import com.cySdkyc.clx.Helper;
 
 /** Required DJI V4 native library initialization before any SDK access. */
 public final class FarusApplication extends Application {

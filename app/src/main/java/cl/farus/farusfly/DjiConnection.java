@@ -5,6 +5,7 @@ import dji.common.error.DJIError;
 import dji.common.error.DJISDKError;
 import dji.sdk.base.BaseProduct;
 import dji.sdk.sdkmanager.DJISDKManager;
+import dji.sdk.sdkmanager.DJISDKInitEvent;
 
 /** Read-only DJI V4 registration and product connectivity; NO flight commands. */
 public final class DjiConnection {
@@ -42,7 +43,7 @@ public final class DjiConnection {
                 }
                 @Override public void onComponentChange(BaseProduct.ComponentKey key,
                         dji.sdk.base.BaseComponent oldComponent, dji.sdk.base.BaseComponent newComponent) { }
-                @Override public void onInitProcess(DJISDKManager.SDKManagerCallback.InitEvent event, int totalProcess) { }
+                @Override public void onInitProcess(DJISDKInitEvent event, int totalProcess) { }
                 @Override public void onDatabaseDownloadProgress(long current, long total) { }
             });
         } catch (Throwable t) {
