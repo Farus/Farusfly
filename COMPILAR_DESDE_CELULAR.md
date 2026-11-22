@@ -1,11 +1,7 @@
 # FarusFly 0.8.2 — compilar APK desde Android
 
-1. Sube el contenido del proyecto a un repositorio privado de GitHub, incluyendo la carpeta .github.
-2. Abre Actions > Compilar FarusFly APK > Run workflow.
-3. Descarga FarusFly-debug-apk desde Artifacts cuando termine.
-4. Descomprime el APK en el teléfono y abre app-debug.apk para instalar.
-5. Para que se registre con DJI, configura tu App Key existente como secreto de GitHub Actions llamado DJI_APP_KEY. El flujo de compilación la pasa a Gradle como propiedad sin escribirla en los archivos del proyecto. No publiques la clave.
+El proyecto está en https://github.com/Farus/Farusfly. La App Key DJI ya está configurada como secreto DJI_APP_KEY. La compilación v0.8.2 terminó correctamente; puedes descargar el artefacto FarusFly-debug-apk desde GitHub Actions o usar el APK entregado junto con este paquete.
 
-La versión 0.7 incluye detección de objetos de ML Kit sobre la imagen DJI y alerta visual en una zona virtual. La API puede requerir la instalación/descarga inicial de su modelo. La alerta no estima distancia ni controla o evita obstáculos. El Mini 2 no tiene evitación de obstáculos.
+La versión 0.8.2 incluye detección de objetos de ML Kit sobre la imagen DJI y alerta visual en una zona virtual. La API puede requerir la instalación/descarga inicial de su modelo. La alerta no estima distancia ni controla o evita obstáculos. El Mini 2 no tiene evitación de obstáculos.
 
-Este entorno no tiene Gradle, Java ni Android SDK instalados, por lo que aquí no pude compilar ni producir un APK. El workflow de GitHub debe confirmar la compilación; el APK necesitará prueba supervisada con teléfono, control y dron reales. No actives vuelos autónomos.
+La compilación se completó en GitHub Actions. El APK necesita prueba supervisada con teléfono, control y dron reales antes de confiar en el registro, el video DJI o las alertas IA. No actives vuelos autónomos.

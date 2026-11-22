@@ -8,9 +8,13 @@
 - Micrófono local y simulador de movimiento sin comandos al dron.
 - No hay llamadas de control de vuelo.
 
-## No validado todavía
+## Verificado en CI
 
-- Compilación Gradle/APK en Android SDK 35 y JDK 17.
+- GitHub Actions completó assembleDebug con Android SDK 35 y JDK 17.
+- Se publicó el artefacto APK de la versión 0.8.2.
+- Se confirmó en el manifiesto binario el paquete cl.farus.farusfly, la versión 0.8.2 y que la App Key está incorporada.
+
+## No validado en dispositivo
 - Descarga/inicialización del modelo, latencia y temperatura en un teléfono real.
 - Registro DJI, enlace físico y video del Mini 2.
 - Robustez ante obstáculos reales; no es un modelo dedicado ni certificable.

@@ -9,9 +9,9 @@
 - Micrófono local, video local y simulador sin comandos de vuelo.
 - Identificador Android cl.farus.farusfly; versión 0.8.2.
 
-## Pendiente de verificación
+## Verificación de compilación y pendientes físicos
 
-- No se ha confirmado un APK compilado en este entorno.
+- GitHub Actions completó correctamente assembleDebug para la versión 0.8.2 y publicó FarusFly-debug-apk. El APK contiene el package cl.farus.farusfly y el secreto DJI_APP_KEY fue provisto al proceso de compilación.
 - No se ha probado la detección sobre video real del Mini 2, el rendimiento en el teléfono ni la inicialización real del SDK.
 - El primer uso de ML Kit puede depender de la disponibilidad/instalación del modelo de Google Play services.
 - El detector genérico no está entrenado para obstáculos y devuelve cajas 2D. No infiere distancia, profundidad o riesgo de colisión y puede omitir cables delgados.

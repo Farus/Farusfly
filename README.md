@@ -22,8 +22,10 @@ El análisis se ejecuta en el teléfono; FarusFly no envía imágenes a un servi
 
 ## Compilación
 
+El APK debug v0.8.2 se compiló correctamente en GitHub Actions. El paquete excluye la base Fly Safe para reducir su tamaño; DJI puede descargarla al registrar el SDK y requiere Internet en ese momento.
+
 Requiere Android Studio, Android SDK 35, JDK 17 y acceso a repositorios Maven/Gradle. Abrir el proyecto y configurar DJI_APP_KEY como propiedad local de Gradle; no guardar ni compartir esa clave en el repositorio. Ejecutar gradle assembleDebug. Este paquete no incorpora el wrapper Gradle. La compatibilidad del teléfono, inicialización DJI, video e IA requieren pruebas en equipo real.
 
 ## Estado de validación
 
-El código fuente integra la superposición y el detector. No se afirma que el APK se haya compilado ni que la IA se haya probado con un Mini 2 hasta completar una compilación Android y una prueba supervisada real.
+El APK se compiló en CI y contiene el identificador cl.farus.farusfly y la App Key configurada durante la compilación. Aún falta instalarlo y validar el registro, la cámara y la detección IA con un teléfono, control y Mini 2 reales.
