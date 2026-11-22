@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.hardware.usb.UsbManager;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Build;
@@ -19,14 +20,16 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.VideoView;
 import androidx.core.content.FileProvider;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import java.io.File;
 import java.util.Locale;
 
 /** FarusFly offline prototype: local microphone, video preview, safe simulator. No DJI control. */
 public class MainActivity extends Activity {
-    private static final int MIC_PERMISSION=100, PICK_VIDEO=101;
+    private static final int MIC_PERMISSION=100, PICK_VIDEO=101, DJI_LOCATION_PERMISSION=102;
     private MediaRecorder recorder;
-    private TextView status, videoLabel;
+    private TextView status, connectionStatus, videoLabel;
     private Button recordButton;
     private VideoView videoView;
     private TextureView djiPreview;
@@ -52,12 +55,13 @@ public class MainActivity extends Activity {
         label(root,"DJI Mini 2 · IA visual · Audio y video local",15,0xFF8BE0CB);
         status=label(root,"SIN CONEXIÓN DJI · CONTROL REAL BLOQUEADO",16,Color.WHITE);
         status.setPadding(0,30,0,24);
-        djiConnection = new DjiConnection(this, message -> runOnUiThread(() -> status.setText(message)));
-        button(root,"Conectar DJI Mini 2 (SDK V4 · solo lectura)",v -> {
-            if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION},102);
-            } else { djiConnection.register(); }
-        });
+        connectionStatus = label(root, "DJI desconectado. Conecta el control por USB.", 16, Color.WHITE);
+        djiConnection = new DjiConnection(this,
+                message -> runOnUiThread(() -> connectionStatus.setText(message)),
+                connected -> runOnUiThread(() -> {
+                    if (!isDestroyed()) djiVideo.setProductConnected(connected);
+                }));
+        button(root, "Conectar DJI Mini 2", v -> connectDji());
         label(root,"CÁMARA DJI EN DIRECTO (solo lectura)",18,0xFF8BE0CB);
         FrameLayout previewFrame=new FrameLayout(this);
         djiPreview=new TextureView(this);
@@ -65,7 +69,8 @@ public class MainActivity extends Activity {
         previewFrame.addView(djiPreview,new FrameLayout.LayoutParams(-1,-1));
         previewFrame.addView(obstacleOverlay,new FrameLayout.LayoutParams(-1,-1));
         root.addView(previewFrame,new LinearLayout.LayoutParams(-1,520));
-        djiVideo=new DjiVideoPreview(this,djiPreview, message -> runOnUiThread(() -> status.setText(message)));
+        TextView cameraStatus = label(root, "Cámara detenida.", 14, Color.WHITE);
+        djiVideo = new DjiVideoPreview(this, djiPreview, cameraStatus::setText);
         visualGuard=new VisualObstacleGuard(djiPreview,obstacleOverlay);
         button(root,"Activar vista DJI",v -> djiVideo.start());
         button(root,"Desactivar vista DJI",v -> {visualGuard.stop();djiVideo.stop();});
@@ -91,7 +96,39 @@ public class MainActivity extends Activity {
             +"No calcula distancia ni trayectoria, no detecta todos los obstáculos y no mueve ni detiene el dron.\n"
             +"Mini 2: sin evitación frontal/lateral/trasera. Mantén control manual y vigilancia directa.\n"
             +"Micrófono junto al teléfono; audio y video local no se sincronizan.",13,0xFFB7C9CB);
+        if (Build.VERSION.SDK_INT >= 35) {
+            scroll.setBackgroundColor(Color.rgb(12, 35, 43));
+            ViewCompat.setOnApplyWindowInsetsListener(scroll, (view, insets) -> {
+                var margins = insets.getInsets(WindowInsetsCompat.Type.systemBars()
+                        | WindowInsetsCompat.Type.displayCutout());
+                view.setPadding(margins.left, margins.top, margins.right, margins.bottom);
+                return insets;
+            });
+        }
         setContentView(scroll);
+        handleUsbAttachment(getIntent());
+    }
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleUsbAttachment(intent);
+    }
+
+    private void handleUsbAttachment(Intent intent) {
+        if (intent != null && UsbManager.ACTION_USB_ACCESSORY_ATTACHED.equals(intent.getAction())) {
+            connectDji();
+        }
+    }
+
+    private void connectDji() {
+        djiVideo.start();
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            djiConnection.register();
+        } else {
+            requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION}, DJI_LOCATION_PERMISSION);
+        }
     }
     private TextView label(LinearLayout root,String value,int size,int color){
         TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(color);
@@ -120,9 +157,16 @@ public class MainActivity extends Activity {
     }
     @Override public void onRequestPermissionsResult(int code,String[] permissions,int[] results){
         super.onRequestPermissionsResult(code,permissions,results);
-        if(code==102 && results.length>0 && results[0]==PackageManager.PERMISSION_GRANTED) djiConnection.register();
-        else if(code==MIC_PERMISSION && results.length>0 && results[0]==PackageManager.PERMISSION_GRANTED)startAudio();
-        else status.setText("Permiso no concedido.");
+        if (code == DJI_LOCATION_PERMISSION) {
+            if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                djiConnection.register();
+            } else {
+                connectionStatus.setText("Para conectar DJI, permite la ubicación precisa en los ajustes de FarusFly.");
+            }
+        } else if (code == MIC_PERMISSION) {
+            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) startAudio();
+            else status.setText("Permiso de micrófono no concedido.");
+        }
     }
     private void startAudio(){
         try{

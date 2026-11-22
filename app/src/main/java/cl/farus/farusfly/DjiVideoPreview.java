@@ -6,47 +6,131 @@ import android.view.TextureView;
 import dji.sdk.camera.VideoFeeder;
 import dji.sdk.codec.DJICodecManager;
 
-/** DJI SDK V4 video preview; read-only. Never transmits flight commands. */
+/** Displays live DJI video on the texture used by visual detection. */
 public final class DjiVideoPreview implements TextureView.SurfaceTextureListener {
     public interface Listener { void onStatus(String message); }
     private final Context context;
     private final TextureView view;
     private final Listener listener;
+    private final Object decoderLock = new Object();
     private DJICodecManager codec;
     private VideoFeeder.VideoDataListener feedListener;
     private VideoFeeder.VideoFeed feed;
     private boolean active;
+    private boolean connected;
+    private boolean rendered;
+    private volatile boolean receivedData;
+    private final Runnable frameTimeout = this::showFrameTimeout;
+
     public DjiVideoPreview(Context context, TextureView view, Listener listener) {
-        this.context=context; this.view=view; this.listener=listener;
-    }
-    public void start() {
-        if(active) return;
-        active=true;
+        this.context = context;
+        this.view = view;
+        this.listener = listener;
         view.setSurfaceTextureListener(this);
-        if(view.isAvailable()) attach(view.getSurfaceTexture(),view.getWidth(),view.getHeight());
     }
-    private void attach(SurfaceTexture texture,int width,int height) {
-        if(!active || codec!=null || width<=0 || height<=0) return;
+
+    public void start() {
+        if (!active) active = true;
+        if (feed != null && !rendered) detach();
+        attach();
+    }
+
+    public void setProductConnected(boolean connected) {
+        this.connected = connected;
+        if (!connected) detach();
+        if (active) attach();
+    }
+
+    private void attach() {
+        if (!active || feed != null) return;
+        if (!connected) {
+            listener.onStatus("Cámara en espera de conexión DJI.");
+            return;
+        }
+        if (!view.isAvailable() || view.getWidth() <= 0 || view.getHeight() <= 0) return;
+
         try {
-            codec=new DJICodecManager(context,texture,width,height);
-            VideoFeeder feeder=VideoFeeder.getInstance();
-            if(feeder==null || feeder.getPrimaryVideoFeed()==null) {
-                listener.onStatus("Video DJI no disponible. Comprueba la conexión.");return;
+            VideoFeeder feeder = VideoFeeder.getInstance();
+            if (feeder != null) {
+                feed = feeder.isLensDistortionCalibrationNeeded() || feeder.isFetchKeyFrameNeeded()
+                        ? feeder.provideTranscodedVideoFeed() : feeder.getPrimaryVideoFeed();
             }
-            feed=feeder.getPrimaryVideoFeed();
-            feedListener=(bytes,size)->{ if(codec!=null && bytes!=null && size>0) codec.sendDataToDecoder(bytes,size); };
+            if (feed == null) {
+                listener.onStatus("DJI conectado, pero la cámara aún no ofrece video. Pulsa Activar vista DJI para reintentar.");
+                return;
+            }
+
+            DJICodecManager decoder = new DJICodecManager(context, view.getSurfaceTexture(),
+                    view.getWidth(), view.getHeight());
+            synchronized (decoderLock) {
+                codec = decoder;
+            }
+            feedListener = (bytes, size) -> {
+                if (bytes == null || size <= 0) return;
+                synchronized (decoderLock) {
+                    if (codec != decoder) return;
+                    receivedData = true;
+                    decoder.sendDataToDecoder(bytes, size);
+                }
+            };
             feed.addVideoDataListener(feedListener);
-            listener.onStatus("Vista DJI iniciada (sin comandos de vuelo).");
-        } catch(Throwable error) {listener.onStatus("Error de video DJI: "+error.getClass().getSimpleName());stop();}
+            listener.onStatus("Esperando imagen de la cámara DJI…");
+            view.postDelayed(frameTimeout, 8000);
+        } catch (RuntimeException | LinkageError error) {
+            detach();
+            listener.onStatus("Error de cámara DJI: " + error);
+        }
     }
+
+    private void showFrameTimeout() {
+        if (!active || rendered || feed == null) return;
+        listener.onStatus(receivedData
+                ? "DJI envía video, pero el teléfono aún no muestra la imagen. Pulsa Activar vista DJI para reintentar."
+                : "DJI conectado, pero sin datos de cámara. Revisa el enlace del control con el Mini 2.");
+    }
+
     public void stop() {
-        active=false;
-        if(feed!=null && feedListener!=null) feed.removeVideoDataListener(feedListener);
-        feed=null;feedListener=null;
-        if(codec!=null) {codec.cleanSurface();codec.destroyCodec();codec=null;}
+        active = false;
+        detach();
+        listener.onStatus("Cámara detenida.");
     }
-    @Override public void onSurfaceTextureAvailable(SurfaceTexture texture,int width,int height) {attach(texture,width,height);}
-    @Override public void onSurfaceTextureSizeChanged(SurfaceTexture texture,int width,int height) {}
-    @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture texture) {stop();return true;}
-    @Override public void onSurfaceTextureUpdated(SurfaceTexture texture) {}
+
+    private void detach() {
+        view.removeCallbacks(frameTimeout);
+        if (feed != null && feedListener != null) feed.removeVideoDataListener(feedListener);
+        feed = null;
+        feedListener = null;
+        DJICodecManager decoder;
+        synchronized (decoderLock) {
+            decoder = codec;
+            codec = null;
+            receivedData = false;
+        }
+        rendered = false;
+        if (decoder != null) {
+            decoder.cleanSurface();
+            decoder.destroyCodec();
+        }
+    }
+
+    @Override public void onSurfaceTextureAvailable(SurfaceTexture texture, int width, int height) {
+        attach();
+    }
+
+    @Override public void onSurfaceTextureSizeChanged(SurfaceTexture texture, int width, int height) {
+        if (feed == null) attach();
+    }
+
+    @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture texture) {
+        detach();
+        return true;
+    }
+
+    @Override public void onSurfaceTextureUpdated(SurfaceTexture texture) {
+        if (!rendered && receivedData && feed != null) {
+            rendered = true;
+            view.removeCallbacks(frameTimeout);
+            listener.onStatus("Cámara DJI en directo.");
+        }
+    }
 }

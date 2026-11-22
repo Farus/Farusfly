@@ -1,6 +1,7 @@
 package cl.farus.farusfly;
 
 import android.content.Context;
+import android.content.Intent;
 import dji.common.error.DJIError;
 import dji.common.error.DJISDKError;
 import dji.sdk.base.BaseProduct;
@@ -12,11 +13,29 @@ public final class DjiConnection {
     public interface Listener { void onStatus(String message); }
     private final Context context;
     private final Listener listener;
-    private boolean registering;
-    public DjiConnection(Context context, Listener listener) {
-        this.context = context.getApplicationContext(); this.listener = listener;
+    public interface ProductListener { void onConnectionChanged(boolean connected); }
+    private final ProductListener productListener;
+    private volatile boolean registering;
+    private volatile boolean registered;
+
+    public DjiConnection(Context context, Listener listener, ProductListener productListener) {
+        this.context = context.getApplicationContext();
+        this.listener = listener;
+        this.productListener = productListener;
     }
+
     public void register() {
+        if (registered) {
+            BaseProduct product = DJISDKManager.getInstance().getProduct();
+            if (product != null && product.isConnected()) {
+                productListener.onConnectionChanged(true);
+                return;
+            }
+            context.sendBroadcast(new Intent(DJISDKManager.USB_ACCESSORY_ATTACHED)
+                    .setPackage(context.getPackageName()));
+            listener.onStatus("SDK registrado. Buscando el control DJI por USB…");
+            return;
+        }
         if (registering) return;
         registering = true;
         listener.onStatus("Registrando DJI SDK V4 (solo lectura)...");
@@ -24,22 +43,31 @@ public final class DjiConnection {
             DJISDKManager.getInstance().registerApp(context, new DJISDKManager.SDKManagerCallback() {
                 @Override public void onRegister(DJIError error) {
                     if (error == DJISDKError.REGISTRATION_SUCCESS) {
-                        listener.onStatus("SDK registrado. Buscando control remoto DJI...");
-                        DJISDKManager.getInstance().startConnectionToProduct();
+                        registered = true;
+                        registering = false;
+                        listener.onStatus("SDK registrado. Buscando el control DJI por USB…");
+                        try {
+                            DJISDKManager.getInstance().startConnectionToProduct();
+                        } catch (RuntimeException e) {
+                            registered = false;
+                            listener.onStatus("Error al conectar DJI: " + e);
+                        }
                     } else {
                         listener.onStatus("Error de registro DJI: " + String.valueOf(error));
                         registering = false;
                     }
                 }
                 @Override public void onProductDisconnect() {
-                    listener.onStatus("DJI desconectado. Control de vuelo BLOQUEADO.");
+                    productListener.onConnectionChanged(false);
+                    listener.onStatus("DJI desconectado. Revisa el cable USB y que el Mini 2 esté encendido.");
                 }
                 @Override public void onProductConnect(BaseProduct product) {
-                    listener.onStatus("DJI conectado: " + (product == null ? "desconocido" : product.getModel())
-                            + ". Control de vuelo BLOQUEADO.");
+                    listener.onStatus("DJI conectado: " + (product == null ? "modelo desconocido" : product.getModel()));
+                    productListener.onConnectionChanged(product != null);
                 }
                 @Override public void onProductChanged(BaseProduct product) {
-                    listener.onStatus("DJI cambió: " + (product == null ? "desconectado" : product.getModel()));
+                    if (product != null && product.isConnected()) onProductConnect(product);
+                    else onProductDisconnect();
                 }
                 @Override public void onComponentChange(BaseProduct.ComponentKey key,
                         dji.sdk.base.BaseComponent oldComponent, dji.sdk.base.BaseComponent newComponent) { }
