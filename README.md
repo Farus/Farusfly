@@ -1,7 +1,29 @@
-# FarusFly
+# FarusFly 0.8 — alertas visuales IA (sin control de vuelo)
 
-Aplicación Android experimental para DJI Mini 2.
+Aplicación Android Java, identificador cl.farus.farusfly.
 
-**Estado:** versión de prueba. No incorpora seguimiento autónomo ni control de vuelo. La compatibilidad con DJI SDK V4 y Android 16 no está validada.
+## Funciones incluidas
 
-La compilación de prueba se ejecuta en GitHub Actions y publica `FarusFly-debug.apk` como artefacto.
+- Vista previa de video DJI SDK V4 en modo de solo lectura.
+- Análisis local de la imagen con Google ML Kit Object Detection en modo de flujo.
+- Cuadros sobre objetos visualmente detectados y una zona virtual central. El cuadro se vuelve rojo y aparece una alerta cuando un objeto cruza esa zona.
+- Botones para iniciar y detener el análisis.
+- Grabación de audio con el micrófono del teléfono, selección de video local y simulación de seguimiento sin transmitir órdenes.
+
+## Límites de la alerta
+
+Es una ayuda visual experimental, no un sistema certificado de detección o evitación. El detector genérico busca objetos prominentes en la imagen; no fue entrenado para obstáculos. Puede pasar por alto cables, ramas finas, vidrio, objetos pequeños, escenas oscuras o elementos fuera del encuadre. La zona sólo comprueba si el cuadro 2D del objeto cruza una región de pantalla: no estima distancia, profundidad, velocidad de aproximación ni trayectoria. La alerta no hace que el dron frene o esquive.
+
+DJI confirma que el Mini 2 no admite evitación de obstáculos ni seguimiento automático de objetos: https://www.dji.com/mini-2. Mantén control manual, línea de vista y distancia prudente.
+
+## Privacidad y modelo
+
+El análisis se ejecuta en el teléfono; FarusFly no envía imágenes a un servidor propio. ML Kit puede requerir que Google Play services instale o descargue el modelo antes del primer uso; el primer inicio puede tardar y requiere conectividad disponible. La detección se limita a cerca de 1,4 cuadros por segundo y al objeto más prominente para reducir carga. No hay un modelo entrenado específicamente para cables u obstáculos.
+
+## Compilación
+
+Requiere Android Studio, Android SDK 35, JDK 17 y acceso a repositorios Maven/Gradle. Abrir el proyecto y configurar DJI_APP_KEY como propiedad local de Gradle; no guardar ni compartir esa clave en el repositorio. Ejecutar gradle assembleDebug. Este paquete no incorpora el wrapper Gradle. La compatibilidad del teléfono, inicialización DJI, video e IA requieren pruebas en equipo real.
+
+## Estado de validación
+
+El código fuente integra la superposición y el detector. No se afirma que el APK se haya compilado ni que la IA se haya probado con un Mini 2 hasta completar una compilación Android y una prueba supervisada real.

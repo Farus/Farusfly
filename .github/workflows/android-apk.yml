@@ -10,18 +10,26 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: ''
       - name: Instalar SDK Android
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Verificar App Key DJI
+        env:
+          DJI_APP_KEY: ${{ secrets.DJI_APP_KEY }}
+        run: test -n "$DJI_APP_KEY" || { echo "Falta configurar el secreto DJI_APP_KEY en GitHub Actions"; exit 1; }
       - name: Compilar APK
-        run: gradle :app:assembleDebug --stacktrace
+        env:
+          DJI_APP_KEY: ${{ secrets.DJI_APP_KEY }}
+        run: gradle :app:assembleDebug --stacktrace -PDJI_APP_KEY="$DJI_APP_KEY"
       - name: Publicar APK
         uses: actions/upload-artifact@v4
         with:

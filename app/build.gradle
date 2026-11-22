@@ -5,9 +5,18 @@ android {
     defaultConfig {
         applicationId 'cl.farus.farusfly'
         minSdk 26
+        multiDexEnabled true
         targetSdk 28
-        versionCode 7
-        versionName '0.7.1'
+        manifestPlaceholders = [DJI_APP_KEY: (project.findProperty('DJI_APP_KEY') ?: 'REPLACE_WITH_DJI_APP_KEY')]
+        versionCode 8
+        versionName '0.8.0'
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies {
+    implementation 'androidx.core:core:1.15.0'
+    implementation 'com.google.mlkit:object-detection:17.0.2'
+    implementation('com.dji:dji-sdk:4.18') { exclude module: 'library-anti-distortion' }
+    compileOnly 'com.dji:dji-sdk-provided:4.18'
+    implementation 'androidx.multidex:multidex:2.0.1'
 }
