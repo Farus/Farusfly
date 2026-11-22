@@ -1,4 +1,4 @@
-# FarusFly 0.8 — integración y estado verificable
+# FarusFly 0.8.1 — integración y estado verificable
 
 ## Incluido en el código
 
@@ -7,7 +7,7 @@
 - Zona virtual central; el recuadro se pone rojo y se muestra una alerta visual cuando un objeto la cruza.
 - Controles para activar/desactivar IA y detener cámara.
 - Micrófono local, video local y simulador sin comandos de vuelo.
-- Identificador Android cl.farus.farusfly; versión 0.8.0.
+- Identificador Android cl.farus.farusfly; versión 0.8.1.
 
 ## Pendiente de verificación
 

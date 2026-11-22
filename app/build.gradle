@@ -8,13 +8,22 @@ android {
         multiDexEnabled true
         targetSdk 28
         manifestPlaceholders = [DJI_APP_KEY: (project.findProperty('DJI_APP_KEY') ?: 'REPLACE_WITH_DJI_APP_KEY')]
-        versionCode 8
-        versionName '0.8.0'
+        versionCode 9
+        versionName '0.8.1'
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
+configurations.configureEach {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == 'org.jetbrains.kotlin' &&
+            details.requested.name in ['kotlin-stdlib-jdk7', 'kotlin-stdlib-jdk8']) {
+            details.useVersion '1.8.22'
+        }
+    }
+}
 dependencies {
     implementation 'androidx.core:core:1.15.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'com.google.mlkit:object-detection:17.0.2'
     implementation('com.dji:dji-sdk:4.18') { exclude module: 'library-anti-distortion' }
     compileOnly 'com.dji:dji-sdk-provided:4.18'
