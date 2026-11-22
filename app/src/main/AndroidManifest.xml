@@ -10,6 +10,7 @@
     <uses-feature android:name="android.hardware.usb.host" android:required="false"/>
     <uses-feature android:name="android.hardware.usb.accessory" android:required="false"/>
     <application android:name=".FarusApplication" android:label="FarusFly" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:usesCleartextTraffic="false">
+        <uses-library android:name="org.apache.http.legacy" android:required="false"/>
         <meta-data android:name="com.dji.sdk.API_KEY" android:value="${DJI_APP_KEY}"/>
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop"
                   android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">

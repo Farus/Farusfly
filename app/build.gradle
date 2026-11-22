@@ -8,8 +8,36 @@ android {
         multiDexEnabled true
         targetSdk 35
         manifestPlaceholders = [DJI_APP_KEY: (project.findProperty('DJI_APP_KEY') ?: 'REPLACE_WITH_DJI_APP_KEY')]
-        versionCode 14
-        versionName '0.8.6'
+        versionCode 15
+        versionName '0.8.7'
+    }
+    // Match the native packaging used by DJI's Android SDK 4.18 sample.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+            keepDebugSymbols += [
+                '**/libdjivideo.so',
+                '**/libSDKRelativeJNI.so',
+                '**/libFlyForbid.so',
+                '**/libduml_vision_bokeh.so',
+                '**/libyuv2.so',
+                '**/libGroudStation.so',
+                '**/libFRCorkscrew.so',
+                '**/libUpgradeVerify.so',
+                '**/libFR.so',
+                '**/libDJIFlySafeCore.so',
+                '**/libdjifs_jni.so',
+                '**/libsfjni.so',
+                '**/libDJICommonJNI.so',
+                '**/libDJICSDKCommon.so',
+                '**/libDJIUpgradeCore.so',
+                '**/libDJIUpgradeJNI.so',
+                '**/libDJIWaypointV2Core.so',
+                '**/libAMapSDK_MAP_v6_9_2.so',
+                '**/libDJIMOP.so',
+                '**/libDJISDKLOGJNI.so'
+            ]
+        }
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }

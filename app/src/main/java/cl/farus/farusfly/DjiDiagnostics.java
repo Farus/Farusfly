@@ -26,11 +26,40 @@ final class DjiDiagnostics {
                 .commit();
     }
 
+    void installCrashRecorder() {
+        Thread.UncaughtExceptionHandler androidHandler = Thread.getDefaultUncaughtExceptionHandler();
+        if (androidHandler == null) return;
+        Thread.setDefaultUncaughtExceptionHandler((thread, failure) -> {
+            try {
+                if (preferences.getInt("pid", 0) == Process.myPid()) {
+                    Throwable cause = failure;
+                    for (int depth = 0; depth < 8 && cause.getCause() != null; depth++) {
+                        cause = cause.getCause();
+                    }
+                    StackTraceElement[] frames = cause.getStackTrace();
+                    String location = frames.length > 0
+                            ? frames[0].getClassName() + "." + frames[0].getMethodName() : "";
+                    // Retain only names from the stack, never exception messages or identifiers.
+                    preferences.edit()
+                            .putInt("exceptionPid", Process.myPid())
+                            .putString("exception", cause.getClass().getName() + " · " + location)
+                            .commit();
+                }
+            } finally {
+                androidHandler.uncaughtException(thread, failure);
+            }
+        });
+    }
+
     String previousInterruption() {
         int pid = preferences.getInt("pid", 0);
         String stage = preferences.getString("stage", null);
         if (pid == 0 || pid == Process.myPid() || stage == null) return null;
         String lastStep = "Último paso DJI: " + stage + ".";
+        if (preferences.getInt("exceptionPid", 0) == pid) {
+            String exception = preferences.getString("exception", "");
+            if (!exception.isEmpty()) lastStep += "\nError: " + exception;
+        }
         if (Build.VERSION.SDK_INT < 30) return lastStep;
 
         ActivityManager manager = context.getSystemService(ActivityManager.class);

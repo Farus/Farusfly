@@ -77,7 +77,7 @@ public class MainActivity extends Activity {
         root.setPadding(30,40,30,40);
         root.setBackgroundColor(Color.rgb(12,35,43));
         scroll.addView(root);
-        label(root,"FarusFly 0.8.6",32,Color.WHITE);
+        label(root,"FarusFly 0.8.7",32,Color.WHITE);
         diagnostics = new DjiDiagnostics(this);
         String interruption = diagnostics.previousInterruption();
         if (interruption != null) label(root, interruption, 14, 0xFFFFCA66);
@@ -183,13 +183,19 @@ public class MainActivity extends Activity {
             return;
         }
 
-        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        if (hasDjiRegistrationPermissions()) {
             djiConnection.register();
         } else {
-            connectionStatus.setText("Control DJI detectado. Selecciona ubicación precisa en el permiso de Android.");
+            connectionStatus.setText("Control DJI detectado. El SDK solicita ubicación precisa y permiso de teléfono.");
             requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION}, DJI_LOCATION_PERMISSION);
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.READ_PHONE_STATE}, DJI_LOCATION_PERMISSION);
         }
+    }
+
+    private boolean hasDjiRegistrationPermissions() {
+        return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                && checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED;
     }
 
     private UsbAccessory findDjiAccessory() {
@@ -229,10 +235,10 @@ public class MainActivity extends Activity {
     @Override public void onRequestPermissionsResult(int code,String[] permissions,int[] results){
         super.onRequestPermissionsResult(code,permissions,results);
         if (code == DJI_LOCATION_PERMISSION) {
-            if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            if (hasDjiRegistrationPermissions()) {
                 connectDji();
             } else {
-                connectionStatus.setText("Para conectar DJI, permite la ubicación precisa en los ajustes de FarusFly.");
+                connectionStatus.setText("Para registrar DJI, habilita Ubicación precisa y Teléfono en los permisos de FarusFly.");
             }
         } else if (code == MIC_PERMISSION) {
             if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) startAudio();
