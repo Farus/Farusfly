@@ -33,19 +33,22 @@ public final class DjiConnection {
             }
             context.sendBroadcast(new Intent(DJISDKManager.USB_ACCESSORY_ATTACHED)
                     .setPackage(context.getPackageName()));
-            listener.onStatus("SDK registrado. Buscando el control DJI por USB…");
+            listener.onStatus("SDK registrado y USB autorizado. Buscando el Mini 2…");
             return;
         }
-        if (registering) return;
+        if (registering) {
+            listener.onStatus("Control DJI detectado. Registro DJI en curso…");
+            return;
+        }
         registering = true;
-        listener.onStatus("Registrando DJI SDK V4 (solo lectura)...");
+        listener.onStatus("Control DJI detectado. Registrando DJI SDK; mantén Internet activo…");
         try {
             DJISDKManager.getInstance().registerApp(context, new DJISDKManager.SDKManagerCallback() {
                 @Override public void onRegister(DJIError error) {
                     if (error == DJISDKError.REGISTRATION_SUCCESS) {
                         registered = true;
                         registering = false;
-                        listener.onStatus("SDK registrado. Buscando el control DJI por USB…");
+                        listener.onStatus("SDK registrado y USB autorizado. Buscando el Mini 2…");
                         try {
                             DJISDKManager.getInstance().startConnectionToProduct();
                         } catch (RuntimeException e) {

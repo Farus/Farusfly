@@ -11,7 +11,8 @@
     <uses-feature android:name="android.hardware.usb.accessory" android:required="false"/>
     <application android:name=".FarusApplication" android:label="FarusFly" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:usesCleartextTraffic="false">
         <meta-data android:name="com.dji.sdk.API_KEY" android:value="${DJI_APP_KEY}"/>
-        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop">
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop"
+                  android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"/>

@@ -8,8 +8,8 @@ android {
         multiDexEnabled true
         targetSdk 35
         manifestPlaceholders = [DJI_APP_KEY: (project.findProperty('DJI_APP_KEY') ?: 'REPLACE_WITH_DJI_APP_KEY')]
-        versionCode 12
-        versionName '0.8.4'
+        versionCode 13
+        versionName '0.8.5'
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }

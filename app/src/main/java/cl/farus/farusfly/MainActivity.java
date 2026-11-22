@@ -2,9 +2,14 @@ package cl.farus.farusfly;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.hardware.usb.UsbAccessory;
 import android.hardware.usb.UsbManager;
 import android.media.MediaRecorder;
 import android.net.Uri;
@@ -19,6 +24,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.VideoView;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -28,6 +34,23 @@ import java.util.Locale;
 /** FarusFly offline prototype: local microphone, video preview, safe simulator. No DJI control. */
 public class MainActivity extends Activity {
     private static final int MIC_PERMISSION=100, PICK_VIDEO=101, DJI_LOCATION_PERMISSION=102;
+    private static final String USB_PERMISSION = "cl.farus.farusfly.USB_PERMISSION";
+    private UsbManager usbManager;
+    private boolean usbPermissionPending;
+    private final BroadcastReceiver usbPermissionReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            if (!USB_PERMISSION.equals(intent.getAction()) || !usbPermissionPending) return;
+            usbPermissionPending = false;
+            UsbAccessory control = findDjiAccessory();
+            if (control == null) {
+                connectionStatus.setText("El control se desconectó del USB. Vuelve a conectar el cable.");
+            } else if (usbManager.hasPermission(control)) {
+                connectDji();
+            } else {
+                connectionStatus.setText("Android no concedió acceso USB. Pulsa Conectar y elige Permitir.");
+            }
+        }
+    };
     private MediaRecorder recorder;
     private TextView status, connectionStatus, videoLabel;
     private Button recordButton;
@@ -53,9 +76,10 @@ public class MainActivity extends Activity {
         scroll.addView(root);
         label(root,"FarusFly",32,Color.WHITE);
         label(root,"DJI Mini 2 · IA visual · Audio y video local",15,0xFF8BE0CB);
-        status=label(root,"SIN CONEXIÓN DJI · CONTROL REAL BLOQUEADO",16,Color.WHITE);
-        status.setPadding(0,30,0,24);
-        connectionStatus = label(root, "DJI desconectado. Conecta el control por USB.", 16, Color.WHITE);
+        usbManager = getSystemService(UsbManager.class);
+        ContextCompat.registerReceiver(this, usbPermissionReceiver, new IntentFilter(USB_PERMISSION),
+                ContextCompat.RECEIVER_NOT_EXPORTED);
+        connectionStatus = label(root, "Conecta el control por USB y pulsa Conectar DJI Mini 2.", 16, Color.WHITE);
         djiConnection = new DjiConnection(this,
                 message -> runOnUiThread(() -> connectionStatus.setText(message)),
                 connected -> runOnUiThread(() -> {
@@ -63,19 +87,20 @@ public class MainActivity extends Activity {
                 }));
         button(root, "Conectar DJI Mini 2", v -> connectDji());
         label(root,"CÁMARA DJI EN DIRECTO (solo lectura)",18,0xFF8BE0CB);
+        TextView cameraStatus = label(root, "Cámara detenida.", 14, Color.WHITE);
         FrameLayout previewFrame=new FrameLayout(this);
         djiPreview=new TextureView(this);
         obstacleOverlay=new ObstacleOverlayView(this);
         previewFrame.addView(djiPreview,new FrameLayout.LayoutParams(-1,-1));
         previewFrame.addView(obstacleOverlay,new FrameLayout.LayoutParams(-1,-1));
         root.addView(previewFrame,new LinearLayout.LayoutParams(-1,520));
-        TextView cameraStatus = label(root, "Cámara detenida.", 14, Color.WHITE);
         djiVideo = new DjiVideoPreview(this, djiPreview, cameraStatus::setText);
         visualGuard=new VisualObstacleGuard(djiPreview,obstacleOverlay);
         button(root,"Activar vista DJI",v -> djiVideo.start());
         button(root,"Desactivar vista DJI",v -> {visualGuard.stop();djiVideo.stop();});
         button(root,"Iniciar alertas visuales IA (zona virtual)",v -> visualGuard.start());
         button(root,"Detener alertas visuales IA",v -> visualGuard.stop());
+        status = label(root, "", 16, Color.WHITE);
         recordButton=button(root,"● Iniciar grabación de audio ambiente",v->{if(recording)stopAudio();else requestAudio();});
         button(root,"Compartir última grabación M4A",v->shareAudio());
         videoLabel=label(root,"Video: ninguno seleccionado",14,0xFFB7C9CB);
@@ -122,13 +147,46 @@ public class MainActivity extends Activity {
     }
 
     private void connectDji() {
+        if (usbPermissionPending) return;
         djiVideo.start();
+        UsbAccessory control = findDjiAccessory();
+        if (control == null) {
+            connectionStatus.setText("Android no detecta el control DJI por USB. Cierra DJI Fly y vuelve a conectar el cable.");
+            return;
+        }
+        if (!usbManager.hasPermission(control)) {
+            connectionStatus.setText("Control DJI detectado. Esperando permiso USB de Android…");
+            Intent result = new Intent(USB_PERMISSION).setPackage(getPackageName());
+            PendingIntent callback = PendingIntent.getBroadcast(this, 0, result,
+                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_ONE_SHOT);
+            usbPermissionPending = true;
+            try {
+                usbManager.requestPermission(control, callback);
+            } catch (RuntimeException error) {
+                usbPermissionPending = false;
+                callback.cancel();
+                connectionStatus.setText("No se pudo pedir acceso USB: " + error.getClass().getSimpleName());
+            }
+            return;
+        }
+
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             djiConnection.register();
         } else {
+            connectionStatus.setText("Control DJI detectado. Selecciona ubicación precisa en el permiso de Android.");
             requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
                     Manifest.permission.ACCESS_COARSE_LOCATION}, DJI_LOCATION_PERMISSION);
         }
+    }
+
+    private UsbAccessory findDjiAccessory() {
+        UsbAccessory[] accessories = usbManager == null ? null : usbManager.getAccessoryList();
+        if (accessories != null) {
+            for (UsbAccessory accessory : accessories) {
+                if ("DJI".equalsIgnoreCase(accessory.getManufacturer())) return accessory;
+            }
+        }
+        return null;
     }
     private TextView label(LinearLayout root,String value,int size,int color){
         TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(color);
@@ -159,7 +217,7 @@ public class MainActivity extends Activity {
         super.onRequestPermissionsResult(code,permissions,results);
         if (code == DJI_LOCATION_PERMISSION) {
             if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                djiConnection.register();
+                connectDji();
             } else {
                 connectionStatus.setText("Para conectar DJI, permite la ubicación precisa en los ajustes de FarusFly.");
             }
@@ -199,5 +257,11 @@ public class MainActivity extends Activity {
         startActivity(Intent.createChooser(intent,"Compartir audio FarusFly"));
     }
     private void releaseRecorder(){if(recorder!=null){try{recorder.reset();}catch(Exception ignored){}recorder.release();recorder=null;}}
-    @Override protected void onDestroy(){if(visualGuard!=null)visualGuard.stop();if(djiVideo!=null)djiVideo.stop();if(recording)stopAudio();super.onDestroy();}
+    @Override protected void onDestroy() {
+        unregisterReceiver(usbPermissionReceiver);
+        if (visualGuard != null) visualGuard.stop();
+        if (djiVideo != null) djiVideo.stop();
+        if (recording) stopAudio();
+        super.onDestroy();
+    }
 }
