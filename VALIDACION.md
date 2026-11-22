@@ -1,4 +1,4 @@
-# FarusFly 0.8.1 — validación
+# FarusFly 0.8.2 — validación
 
 ## Implementado en código
 

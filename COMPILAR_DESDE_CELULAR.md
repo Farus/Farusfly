@@ -1,4 +1,4 @@
-# FarusFly 0.8.1 — compilar APK desde Android
+# FarusFly 0.8.2 — compilar APK desde Android
 
 1. Sube el contenido del proyecto a un repositorio privado de GitHub, incluyendo la carpeta .github.
 2. Abre Actions > Compilar FarusFly APK > Run workflow.

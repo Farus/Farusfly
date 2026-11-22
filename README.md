@@ -1,4 +1,4 @@
-# FarusFly 0.8.1 — alertas visuales IA (sin control de vuelo)
+# FarusFly 0.8.2 — alertas visuales IA (sin control de vuelo)
 
 Aplicación Android Java, identificador cl.farus.farusfly.
 
